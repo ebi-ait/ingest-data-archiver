@@ -3,7 +3,7 @@
 __Data archiving request__
 
 - Mandatory field: `sub_uuid` - the submission uuid.
-- Optional field: `files` - list of files names in submission. 
+- Optional field: `files` - list of file names in submission. 
     - If unspecified, all files in the submission is archived.
     - This is useful to allow retry of individual data file(s) archiving in case of a failure.
 
