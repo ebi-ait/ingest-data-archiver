@@ -1,11 +1,12 @@
 from kombu.mixins import ConsumerProducerMixin
 from kombu import Connection, Consumer, Message, Queue, Exchange
 
-from config import QueueConfig, AmqpConnConfig
+from data.archiver.config import QueueConfig, AmqpConnConfig
 
 from typing import Type, List, Dict
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+from archiver import Archiver
 
 import logging
 import json
@@ -76,7 +77,7 @@ class _Listener(ConsumerProducerMixin):
             req = DataArchiverRequest.from_dict(dict)
             self.logger.info(f'Received data archiving request for submission uuid {req.sub_uuid}')
 
-            ## archiver ##
+            Archiver().start(req)
             
             self.logger.info(f'Archived data for submission uuid {req.sub_uuid}')
             
