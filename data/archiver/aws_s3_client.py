@@ -1,22 +1,20 @@
 import os
 import boto3
-from file_transfer import FileTransfer, TransferProgress, transfer
-from config import AWS_S3_REGION, AWS_S3_BUCKET, AWS_ACCESS_KEY, AWS_SECRET_KEY
+from data.archiver.file_transfer import FileTransfer, TransferProgress, transfer
+from data.archiver.config import AWS_S3_REGION, AWS_S3_BUCKET, AWS_ACCESS_KEY, AWS_SECRET_KEY
 
 
 class AwsS3:
 
     def __init__(self):
-        pass
+        self.session = self.new_session()
 
-    def new_session(self):
-        return boto3.Session(region_name=AWS_S3_REGION,
-                             aws_access_key_id=AWS_ACCESS_KEY,
-                             aws_secret_access_key=AWS_SECRET_KEY)
+    def close(self):
+        pass
 
     def get_files(self, submission_uuid):
 
-        bucket = self.new_session().resource('s3').Bucket(AWS_S3_BUCKET)
+        bucket = self.session.resource('s3').Bucket(AWS_S3_BUCKET)
 
         fs = []
         for obj in bucket.objects.filter(Prefix=submission_uuid):
@@ -51,6 +49,7 @@ class AwsS3:
                 fs[idx].complete = True
                 fs[idx].successful = False
 
+
         print('Downloading...')
 
         transfer(download, fs)
@@ -58,4 +57,11 @@ class AwsS3:
         files = [f.key for f in fs if f.successful]
         print(f'{len(files)}/{len(fs)} files downloaded.')
 
+        bucket.
+
         return files
+
+    def new_session(self):
+        return boto3.Session(region_name=AWS_S3_REGION,
+                             aws_access_key_id=AWS_ACCESS_KEY,
+                             aws_secret_access_key=AWS_SECRET_KEY)

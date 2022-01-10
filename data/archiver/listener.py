@@ -1,50 +1,13 @@
-from kombu.mixins import ConsumerProducerMixin
-from kombu import Connection, Consumer, Message, Queue, Exchange
-
-from data.archiver.config import QueueConfig, AmqpConnConfig
-
-from typing import Type, List, Dict
-from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
-from archiver import Archiver
-
 import logging
 import json
+from kombu.mixins import ConsumerProducerMixin
+from kombu import Connection, Consumer, Message, Queue, Exchange
+from typing import Type, List
+from concurrent.futures import ThreadPoolExecutor
 
-
-class DataArchiverRequestParseExpection(Exception):
-    pass
-
-
-@dataclass
-class DataArchiverRequest:
-    sub_uuid: str
-    files: List[str]
-
-    @staticmethod
-    def from_dict(data: Dict) -> 'DataArchiverRequest':
-        try:
-            return DataArchiverRequest(data["sub_uuid"],
-                                     data["files"] if "files" in data else [])
-        except (KeyError, TypeError) as e:
-            print(e)
-            raise DataArchiverRequestParseExpection(e)
-
-
-@dataclass
-class FileResult:
-    file_name: str
-    md5: str
-    success: bool
-
-
-@dataclass
-class DataArchiverResult:
-    sub_uuid: str
-    success: bool
-    files: List[FileResult]
-
-
+from data.archiver.config import QueueConfig, AmqpConnConfig
+from data.archiver.archiver import Archiver
+from data.archiver.dataclass import DataArchiverRequest
 
 
 class _Listener(ConsumerProducerMixin):

@@ -48,3 +48,9 @@ __Data archiving result__
    ]
 }
 ```
+
+
+## Test
+```
+python -m unittest test.test_archiver
+```

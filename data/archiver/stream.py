@@ -9,10 +9,10 @@ from ftplib import FTP, FTP_TLS
 from io import BytesIO
 from memory_profiler import profile
 import tempfile
-from ftp_uploader import FtpUploader
-from config import AWS_ACCESS_KEY, AWS_SECRET_KEY, ENA_FTP_HOST, ENA_WEBIN_USER, ENA_WEBIN_PWD
 import time
 
+from data.archiver.config import AWS_ACCESS_KEY, AWS_SECRET_KEY, ENA_FTP_HOST, ENA_WEBIN_USER, ENA_WEBIN_PWD
+from data.archiver.ftp_uploader import FtpUploader
 
 s3 = s3fs.S3FileSystem(anon=False, key=AWS_ACCESS_KEY, secret=AWS_SECRET_KEY)
 ftp = FTP(ENA_FTP_HOST, ENA_WEBIN_USER, ENA_WEBIN_PWD, timeout=60*60*2) # 2h

@@ -1,6 +1,6 @@
 import os
 from ftplib import FTP, FTP_TLS
-from config import ENA_FTP_HOST, ENA_WEBIN_USER, ENA_WEBIN_PWD, ENA_FTP_DIR
+from data.archiver.config import ENA_FTP_HOST, ENA_WEBIN_USER, ENA_WEBIN_PWD, ENA_FTP_DIR
 
 
 class FtpUploader:
@@ -24,7 +24,7 @@ class FtpUploader:
             print(f'Uploading {f}')
             self.ftp_stor(f)
 
-    def close_conn(self):
+    def close(self):
         self.ftp.close()
 
 

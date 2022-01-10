@@ -1,7 +1,7 @@
 import json
 import requests
 import functools
-from config import INGEST_API
+from data.archiver.config import INGEST_API
 
 def handle_exception(f):
     @functools.wraps(f)
@@ -15,10 +15,13 @@ def handle_exception(f):
 
 class Ingest:
 
+    def __init__(self):
+        self.session = requests.Session()
+
     @handle_exception
     def get_submission(self, uuid):
         submission_url = f'{INGEST_API}submissionEnvelopes/search/findByUuidUuid?uuid={uuid}'
-        response = requests.get(submission_url)
+        response = self.session.get(submission_url)
         submission_json = json.loads(response.text)
         return submission_json
 
@@ -26,7 +29,7 @@ class Ingest:
     def get_files(self, uuid):
         submission = self.get_submission(uuid)
         files_url = submission['_links']['files']['href']
-        response = requests.get(files_url)
+        response = self.session.get(files_url)
         files_json = json.loads(response.text)
         return files_json
 
@@ -41,3 +44,7 @@ class Ingest:
                 s3_files.append(cloud_url)
     
         return s3_files
+
+    def close(self):
+        self.session.close()
+    
