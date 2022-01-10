@@ -1,6 +1,7 @@
 FROM quay.io/ebi-ait/ingest-base-images:python_3.7-alpine
 LABEL maintainer="hca-ingest-dev@ebi.ac.uk"
 
+RUN pip install --upgrade pip
 RUN apk update && \
     apk add build-base && \
     apk add openssl-dev && \
@@ -11,8 +12,7 @@ RUN mkdir /app
 WORKDIR /app
 
 COPY requirements.txt ./
-RUN python -m pip install --upgrade pip && \
-    pip install -r requirements.txt
+RUN pip install -r requirements.txt
 
 COPY config.py data_archiver.py listener.py ./
 
