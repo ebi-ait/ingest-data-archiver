@@ -1,22 +1,18 @@
 import os
 from ftplib import FTP, FTP_TLS
+from config import ENA_FTP_HOST, ENA_WEBIN_USER, ENA_WEBIN_PWD, ENA_FTP_DIR
 
-
-FTP_HOST = os.getenv('ENA_FTP_HOST')
-FTP_USER = os.getenv('ENA_WEBIN_USERNAME')
-FTP_PWD = os.getenv('ENA_WEBIN_PASSWORD')
-FTP_DIR = os.getenv('ENA_FTP_DIR')
 
 class FtpUploader:
     def __init__(self, uuid, secure=False):
         self.uuid = uuid
         self.secure = secure
         if secure:
-            self.ftp = FTP_TLS(FTP_HOST, FTP_USER, FTP_PWD)
+            self.ftp = FTP_TLS(ENA_FTP_HOST, ENA_WEBIN_USER, ENA_WEBIN_PWD)
             self.ftp.prot_p()
         else:
-            self.ftp = FTP(FTP_HOST, FTP_USER, FTP_PWD)
-        FtpUploader.chdir(self.ftp, FTP_DIR)
+            self.ftp = FTP(ENA_FTP_HOST, ENA_WEBIN_USER, ENA_WEBIN_PWD)
+        FtpUploader.chdir(self.ftp, ENA_FTP_DIR)
         FtpUploader.chdir(self.ftp, uuid)
 
     def ftp_stor(self, file):

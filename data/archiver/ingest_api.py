@@ -1,11 +1,7 @@
-import os
 import json
 import requests
 import functools
-
-
-INGEST_API = os.getenv('INGEST_API')
-
+from config import INGEST_API
 
 def handle_exception(f):
     @functools.wraps(f)
@@ -45,10 +41,3 @@ class Ingest:
                 s3_files.append(cloud_url)
     
         return s3_files
-
-        
-if __name__ == '__main__':
-    try:
-        print(Ingest('prod').get_sequence_files('0948a727-228f-4cfc-857e-6243c6aed08d'))
-    except Exception as e:
-        pass

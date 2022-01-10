@@ -1,25 +1,22 @@
 import os
 import boto3
 from file_transfer import FileTransfer, TransferProgress, transfer
-
-S3_REGION = os.getenv('INGEST_S3_REGION')
-BUCKET_NAME = os.getenv('INGEST_S3_BUCKET')
+from config import AWS_S3_REGION, AWS_S3_BUCKET, AWS_ACCESS_KEY, AWS_SECRET_KEY
 
 
 class AwsS3:
 
-    def __init__(self, access_key, secret_key):
-        self.access_key = access_key
-        self.secret_key = secret_key
+    def __init__(self):
+        pass
 
     def new_session(self):
-        return boto3.Session(region_name=S3_REGION,
-                             aws_access_key_id=self.access_key,
-                             aws_secret_access_key=self.secret_key)
+        return boto3.Session(region_name=AWS_S3_REGION,
+                             aws_access_key_id=AWS_ACCESS_KEY,
+                             aws_secret_access_key=AWS_SECRET_KEY)
 
     def get_files(self, submission_uuid):
 
-        bucket = self.new_session().resource('s3').Bucket(BUCKET_NAME)
+        bucket = self.new_session().resource('s3').Bucket(AWS_S3_BUCKET)
 
         fs = []
         for obj in bucket.objects.filter(Prefix=submission_uuid):
@@ -34,7 +31,7 @@ class AwsS3:
                 os.makedirs(os.path.dirname(file), exist_ok=True)
 
                 s3 = self.new_session().resource('s3') # session not thread-safe, so requires new session
-                s3.Bucket(BUCKET_NAME).download_file(file, file, Callback=TransferProgress(fs[idx]))
+                s3.Bucket(AWS_S3_BUCKET).download_file(file, file, Callback=TransferProgress(fs[idx]))
 
                 # if file size is 0, callback will likely never be called
                 # and complete will not change to True
