@@ -52,5 +52,5 @@ __Data archiving result__
 
 ## Test
 ```
-python -m unittest test.test_archiver
+python -m unittest tests.test_archiver
 ```

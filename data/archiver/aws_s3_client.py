@@ -6,15 +6,9 @@ from data.archiver.config import AWS_S3_REGION, AWS_S3_BUCKET, AWS_ACCESS_KEY, A
 
 class AwsS3:
 
-    def __init__(self):
-        self.session = self.new_session()
-
-    def close(self):
-        pass
-
     def get_files(self, submission_uuid):
 
-        bucket = self.session.resource('s3').Bucket(AWS_S3_BUCKET)
+        bucket = self.new_session().resource('s3').Bucket(AWS_S3_BUCKET)
 
         fs = []
         for obj in bucket.objects.filter(Prefix=submission_uuid):
@@ -56,8 +50,6 @@ class AwsS3:
 
         files = [f.key for f in fs if f.successful]
         print(f'{len(files)}/{len(fs)} files downloaded.')
-
-        bucket.
 
         return files
 
