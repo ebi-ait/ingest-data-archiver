@@ -40,21 +40,22 @@ class _Listener(ConsumerProducerMixin):
             req = DataArchiverRequest.from_dict(dict)
             self.logger.info(f'Received data archiving request for submission uuid {req.sub_uuid}')
 
-            Archiver().start(req)
-            
-            self.logger.info(f'Archived data for submission uuid {req.sub_uuid}')
-            
-            self.producer.publish(json.loads(body),
+            result = Archiver().start(req)
+            self.producer.publish(result.to_dict(),
                 exchange=self.pub_queue_config.exchange,
                 routing_key=self.pub_queue_config.routing_key,
                 retry=self.pub_queue_config.retry,
                 retry_policy=self.pub_queue_config.retry_policy)
+            
+            self.logger.info(f'Archived data for submission uuid {req.sub_uuid}')
+            
 
         except ValueError as e:
             self.logger.info(f'Invalid JSON request: {body}')
             #self.logger.exception(e)
         except Exception as e:
             self.logger.info(f'Data archiving request failed: {body}')
+            print(e)
             #self.logger.exception(e)
 
         msg.ack()
