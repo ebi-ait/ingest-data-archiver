@@ -6,6 +6,8 @@ from data.archiver.utils import compress, md5
 from data.archiver.dataclass import DataArchiverRequest, DataArchiverResult
 from data.archiver.ingest_api import Ingest
 
+STREAM_ARCHIVE = False
+
 class Archiver:
 
     def __init__(self):
@@ -34,9 +36,12 @@ class Archiver:
 
         try:
             # TODO logic here to decide between local copy or stream archive/upload to ena
-            result = self.archive_files_via_localcopy(req, res)
-            self.logger.info(result)
-            return result
+            if STREAM_ARCHIVE:
+                return
+            else:
+                result = self.archive_files_via_localcopy(req, res)
+                self.logger.info(result)
+                return result
 
         except Exception as ex:
             print(ex)
