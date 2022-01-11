@@ -30,3 +30,4 @@ if __name__ == '__main__':
                         format=format)
 
     setup()
+    logging.getLogger('ingest-data-archiver').info("Ingest data archiver listening...")
