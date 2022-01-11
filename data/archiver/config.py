@@ -13,6 +13,8 @@ ENA_WEBIN_USER = os.getenv('ENA_WEBIN_USERNAME')
 ENA_WEBIN_PWD = os.getenv('ENA_WEBIN_PASSWORD')
 
 INGEST_API = os.getenv('INGEST_API')
+if not INGEST_API.endswith("/"):
+    INGEST_API += '/'
 
 # messaging
 RABBIT_HOST = os.environ.get('RABBIT_HOST')
