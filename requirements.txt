@@ -2,3 +2,4 @@ requests
 kombu
 boto3==1.12.*
 botocore==1.15.*
+tqdm
