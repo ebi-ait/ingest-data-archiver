@@ -1,7 +1,6 @@
 #!/bin/bash
 
-export INGEST_API=http://localhost:8080
-export INGEST_S3_BUCKET=org-hca-data-archive-upload-dev
+export INGEST_API=http://localhost:8080/
 export INGEST_S3_REGION=us-east-1
 export RABBIT_HOST=localhost
 export RABBIT_PORT=5672

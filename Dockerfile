@@ -16,7 +16,6 @@ COPY main.py ./
 COPY data ./data
 
 ENV INGEST_API=http://localhost:8080
-ENV INGEST_S3_BUCKET=org-hca-data-archive-upload-dev
 ENV INGEST_S3_REGION=us-east-1
 ENV RABBIT_HOST=localhost
 ENV RABBIT_PORT=5672
