@@ -2,12 +2,11 @@ import os
 import logging
 from ftplib import FTP, FTP_TLS
 from data.archiver.config import ENA_FTP_HOST, ENA_WEBIN_USER, ENA_WEBIN_PWD, ENA_FTP_DIR
-from data.archiver.dataclass import DataArchiverRequest, DataArchiverResult
+from data.archiver.dataclass import DataArchiverResult
 
 
 class FtpUploader:
-    def __init__(self, req:DataArchiverRequest, res:DataArchiverResult, secure=False):
-        self.req = req
+    def __init__(self, res:DataArchiverResult, secure=False):
         self.res = res
         self.secure = secure
         if secure:
@@ -16,7 +15,7 @@ class FtpUploader:
         else:
             self.ftp = FTP(ENA_FTP_HOST, ENA_WEBIN_USER, ENA_WEBIN_PWD)
         FtpUploader.chdir(self.ftp, ENA_FTP_DIR)
-        FtpUploader.chdir(self.ftp, req.sub_uuid)
+        FtpUploader.chdir(self.ftp, res.sub_uuid)
         
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.INFO)
@@ -30,9 +29,9 @@ class FtpUploader:
             if f.success:
                 try:
                     self.logger.info(f'Uploading {f.file_name}')
-                    self.ftp_stor(f'{self.req.sub_uuid}/{f.file_name}')
+                    self.ftp_stor(f'{self.res.sub_uuid}/{f.file_name}')
                     self.logger.info(f'Uploading {f.file_name}.md5')
-                    self.ftp_stor(f'{self.req.sub_uuid}/{f.file_name}.md5')
+                    self.ftp_stor(f'{self.res.sub_uuid}/{f.file_name}.md5')
                 except:
                     f.success = False
                     f.error = 'FTP upload error'
