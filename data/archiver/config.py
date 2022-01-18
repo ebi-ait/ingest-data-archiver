@@ -3,7 +3,6 @@ from dataclasses import dataclass
 
 
 AWS_S3_REGION = os.getenv('INGEST_S3_REGION')
-AWS_S3_BUCKET = os.getenv('INGEST_S3_BUCKET')
 AWS_ACCESS_KEY = os.getenv('AWS_ACCESS_KEY_ID')
 AWS_SECRET_KEY = os.getenv('AWS_ACCESS_KEY_SECRET')
 
