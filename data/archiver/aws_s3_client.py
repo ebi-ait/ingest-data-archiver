@@ -12,7 +12,6 @@ from data.archiver.dataclass import DataArchiverResult
 from data.archiver.config import AWS_S3_REGION, AWS_ACCESS_KEY, AWS_SECRET_KEY
 
 
-
 class S3Url:
 
     def __init__(self, url):
@@ -25,6 +24,10 @@ class S3Url:
     @property
     def key(self):
         return self._parsed.path.lstrip('/')
+
+    @property
+    def uuid(self):
+        return self.key[:36]
 
 
 class S3FileDownload:
