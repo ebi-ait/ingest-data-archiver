@@ -52,5 +52,6 @@ __Data archiving result__
 
 ## Test
 ```
-python -m unittest tests.test_archiver
+python -m unittest tests.e2e.test_archiver
+python -m unittest tests.e2e.test_s3_ftp_streamer
 ```

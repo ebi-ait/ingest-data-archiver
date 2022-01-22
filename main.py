@@ -3,8 +3,9 @@ import logging
 import sys
 from threading import Thread
 
-from data.archiver.config import AmqpConnConfig, QueueConfig, RABBIT_HOST, RABBIT_PORT, EXCHANGE, EXCHANGE_TYPE, SUBSCRIBE_QUEUE, SUBSCRIBE_ROUTING_KEY, PUBLISH_ROUTING_KEY, RETRY_POLICY
+from data.archiver.config import RABBIT_HOST, RABBIT_PORT, EXCHANGE, EXCHANGE_TYPE, SUBSCRIBE_QUEUE, SUBSCRIBE_ROUTING_KEY, PUBLISH_ROUTING_KEY, RETRY_POLICY
 from data.archiver.listener import Listener
+from data.archiver.dataclass import AmqpConnConfig, QueueConfig
 
 
 def setup() -> Thread:

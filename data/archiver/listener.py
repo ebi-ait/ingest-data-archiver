@@ -5,9 +5,8 @@ from kombu import Connection, Consumer, Message, Queue, Exchange
 from typing import Type, List
 from concurrent.futures import ThreadPoolExecutor
 
-from data.archiver.config import QueueConfig, AmqpConnConfig
 from data.archiver.archiver import Archiver
-from data.archiver.dataclass import DataArchiverRequest
+from data.archiver.dataclass import AmqpConnConfig, QueueConfig, DataArchiverRequest
 
 
 class _Listener(ConsumerProducerMixin):

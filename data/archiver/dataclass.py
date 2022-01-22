@@ -1,6 +1,7 @@
 from typing import List, Dict
 from dataclasses import dataclass
 import json
+import datetime
 
 
 class DataArchiverRequestParseExpection(Exception):
@@ -10,12 +11,14 @@ class DataArchiverRequestParseExpection(Exception):
 class DataArchiverRequest:
     sub_uuid: str
     files: List[str]
+    stream: bool 
 
     @staticmethod
     def from_dict(data: Dict) -> 'DataArchiverRequest':
         try:
             return DataArchiverRequest(data["sub_uuid"],
-                                     data["files"] if "files" in data else [])
+                                     data["files"] if "files" in data else [],
+                                     data["stream"] if "stream" in data else True)
         except (KeyError, TypeError) as e:
             print(e)
             raise DataArchiverRequestParseExpection(e)
@@ -24,9 +27,19 @@ class DataArchiverRequest:
 @dataclass
 class FileResult:
     file_name: str
+    cloud_url: str
+    size: int
     md5: str
     success: bool
     error: str
+
+    def __init__(self, file_name, cloud_url, size=0, md5=None, success=True, error=None):
+        self.file_name = file_name
+        self.cloud_url = cloud_url
+        self.size = size
+        self.md5 = md5
+        self.success = success
+        self.error = error
 
 
 @dataclass
@@ -36,25 +49,30 @@ class DataArchiverResult:
     error: str
     files: List[FileResult]
 
-    @staticmethod
-    def empty(req: DataArchiverRequest):
-        res_files = []
-        if req.files:
-            for file in req.files:
-                res_files.append(FileResult(file, None, True, None))
-        return DataArchiverResult(req.sub_uuid, True, None, res_files)
-
-    def update_file_result(self, file_name, md5, success, error):
-        for file in self.files:
-            if file.file_name == file_name:
-                file.md5 = md5
-                file.success = success
-                file.error = error
-                break
-
-    @staticmethod
-    def error_res(req, err):
-        return DataArchiverResult(req.sub_uuid, False, err, [])
+    def __init__(self, sub_uuid, success=True, error=None, files=[]):
+        self.sub_uuid = sub_uuid
+        self.success = success
+        self.error = error
+        self.files = files
 
     def to_dict(self):
         return json.loads(json.dumps(self, default=lambda o: o.__dict__))
+
+
+@dataclass
+class QueueConfig:
+    name: str
+    routing_key: str
+    exchange: str
+    exchange_type: str
+    retry: bool
+    retry_policy: dict
+
+
+@dataclass
+class AmqpConnConfig:
+    host: str
+    port: int
+
+    def broker_url(self):
+        return f'amqp://{self.host}:{str(self.port)}'

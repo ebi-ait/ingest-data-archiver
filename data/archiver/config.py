@@ -3,7 +3,6 @@ from dataclasses import dataclass
 
 
 AWS_S3_REGION = os.getenv('INGEST_S3_REGION')
-AWS_S3_BUCKET = os.getenv('INGEST_S3_BUCKET')
 AWS_ACCESS_KEY = os.getenv('AWS_ACCESS_KEY_ID')
 AWS_SECRET_KEY = os.getenv('AWS_ACCESS_KEY_SECRET')
 
@@ -34,22 +33,3 @@ RETRY_POLICY = {
     'interval_max': 30,
     'max_retries': 60
 }
-
-
-@dataclass
-class QueueConfig:
-    name: str
-    routing_key: str
-    exchange: str
-    exchange_type: str
-    retry: bool
-    retry_policy: dict
-
-
-@dataclass
-class AmqpConnConfig:
-    host: str
-    port: int
-
-    def broker_url(self):
-        return f'amqp://{self.host}:{str(self.port)}'

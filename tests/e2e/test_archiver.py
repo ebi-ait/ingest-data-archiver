@@ -10,7 +10,7 @@ class TestArchiver(unittest.TestCase):
         self.archiver = Archiver()
         super().setUp()
 
-    def test_archive(self):
+    def _test_archive(self):
         req = DataArchiverRequest.from_dict({"sub_uuid": "043f8f2f-1e99-434f-9a3c-dc14441e8a66", "files": []})
         self.archiver.start(req)
         ## TODO assertions

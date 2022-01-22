@@ -1,172 +1,167 @@
 from io import BytesIO, StringIO
-import os
+import sys
+from tarfile import BLOCKSIZE
+import traceback
 import s3fs
 import hashlib
 import gzip
-import zlib
 import shutil
-from ftplib import FTP, FTP_TLS
+import logging
+from ftplib import FTP
 from io import BytesIO
 from memory_profiler import profile
 import tempfile
-import time
+from tqdm import tqdm
+from multiprocessing import cpu_count
+from multiprocessing.pool import ThreadPool
+from data.archiver.aws_s3_client import S3Url
 
 from data.archiver.config import AWS_ACCESS_KEY, AWS_SECRET_KEY, ENA_FTP_HOST, ENA_WEBIN_USER, ENA_WEBIN_PWD
+from data.archiver.dataclass import DataArchiverRequest, DataArchiverResult, FileResult
 from data.archiver.ftp_uploader import FtpUploader
 
-s3 = s3fs.S3FileSystem(anon=False, key=AWS_ACCESS_KEY, secret=AWS_SECRET_KEY)
-ftp = FTP(ENA_FTP_HOST, ENA_WEBIN_USER, ENA_WEBIN_PWD, timeout=60*60*2) # 2h
-
-
-@profile
-def calc_md5(s3file):
-    """
-    Calculate md5 by streaming s3 file without saving it locally.
-    """
-    hash_md5 = hashlib.md5()
-    with s3.open(s3file, 'rb') as f:
-        for chunk in iter(lambda: f.read(4096), b""):
-            hash_md5.update(chunk)
-    return hash_md5.hexdigest()
-
-
-@profile
-def transfer_file(fin, fout):
-    """
-    Transfer s3 file to ftp via stream.
-    """
-    with s3.open(fin, 'rb') as f:
-        ftp.storbinary(f'STOR {fout}', f) 
-
-@profile
-def transfer_file_md5(fin, fout):
-    hash_md5 = hashlib.md5()
-    with s3.open(fin, 'rb') as f:
-        ftp.storbinary(f'STOR {fout}', f) 
-        for chunk in iter(lambda: f.read(4096), b""):
-            hash_md5.update(chunk)
-    md5 = hash_md5.hexdigest()
-    ftp.storbinary(f'STOR {fout}.md5', BytesIO(bytes(md5, 'utf-8')))
-
-
-@profile
-def transfer_file_compress(fin, fout):
-    with s3.open(fin, 'rb') as f:
-        compressed_fp = tempfile.SpooledTemporaryFile() #BytesIO() #tempfile.NamedTemporaryFile()
-        hash_md5 = hashlib.md5()
-        with gzip.GzipFile(fileobj=compressed_fp, mode='wb') as gz:
-            shutil.copyfileobj(f, gz)
-        compressed_fp.seek(0)
-        ftp.storbinary(f'STOR {fout}.gz', compressed_fp) 
-        for chunk in iter(lambda: f.read(4096), b""):
-            hash_md5.update(chunk)
-        md5 = hash_md5.hexdigest()
-        ftp.storbinary(f'STOR {fout}.gz.md5', BytesIO(bytes(md5, 'utf-8')))
-        compressed_fp.close()
-
-
-#https://stackoverflow.com/questions/30113119/compress-a-file-in-memory-compute-checksum-and-write-it-as-gzip-in-python
-#https://gist.github.com/tobywf/079b36898d39eeb1824977c6c2f6d51e
-
-@profile
-def run(file):
-    hash_md5 = hashlib.md5()
-    hash_md5_1 = hashlib.md5()
-    with s3.open(file, 'rb') as f:
-        for chunk in iter(lambda: f.read(4096), b""):
-            hash_md5.update(chunk)
-
-        print(hash_md5.hexdigest())
-        """
-        with gzip.open(f'test.gz', 'rwb') as f_out:
-            shutil.copyfileobj(f, f_out)
-            print('Compressed file md5')
-            for chunk in iter(lambda: f_out.read(4096), b""):
-                hash_md5.update(chunk)
-
-            print(hash_md5.hexdigest())
-
-        print('Original file md5')
-
-        for chunk in iter(lambda: f.read(4096), b""):
-            hash_md5_1.update(chunk)
-
-        print(hash_md5_1.hexdigest())
-        """
-
-
-def is_compressed(s3file):
-    return s3file.endswith('.gz') and s3.read_block(s3file, 0, 2) == b'\x1f\x8b'
 
 MAX_IN_MEM_FILE_COMPRESSION = 1024*1024*500 #500M
 
-def transfer(s3file):
-    bucket, uuid, file_name = s3file.split('/')
-    env = bucket.split('-')[-1]
 
-    s3_file_size = s3.size(s3file)
-    s3_file_compressed = is_compressed(s3file)
+class S3FTPStreamer:
 
-    print(f'Transfer {s3file} -> FTP')
-    print(f'File size (bytes): {s3_file_size}' )
-    print(f'Compressed: {s3_file_compressed}')
+    def __init__(self):
+        self.s3 = s3fs.S3FileSystem(anon=False, key=AWS_ACCESS_KEY, secret=AWS_SECRET_KEY)
+        self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(logging.INFO)
 
-    #ftp_dir = f'{env}/{uuid}'
-    ftp_file_exists = False
-    if FtpUploader.dir_exists(ftp, env):
-       ftp.cwd(env)
-       if FtpUploader.dir_exists(ftp, uuid):
-           ftp.cwd(uuid)
-           if FtpUploader.file_exists(file_name):
-               ftp_file_exists = True
-               ftp_file_size = FtpUploader.file_size(file_name)
+    @staticmethod
+    def new_ftpcli():
+        return FTP(ENA_FTP_HOST, ENA_WEBIN_USER, ENA_WEBIN_PWD, timeout=60*60*2) # 2h
 
-    if ftp_file_exists:
-        print(f'File exists in FTP.')
-        print(f'File size (bytes): {ftp_file_size}')
+    def md5(self, file):
+        """
+        calculate md5 by streaming file without saving locally.
+        """
+        hash_md5 = hashlib.md5()
+        with self.s3.open(file.cloud_url, 'rb') as f:
+            for chunk in iter(lambda: f.read(4096), b""):
+                hash_md5.update(chunk)
+        return hash_md5.hexdigest()
 
-    else:
-        if s3_file_compressed:
-            # stream file to ftp without compression
-            transfer_file(s3file)
-        else:
-            # s3 file not compressed
-            if s3_file_size < MAX_IN_MEM_FILE_COMPRESSION:
+    def stream(self, ftp, fin, fout, cb):
+        """
+        stream s3 file to ftp 
+        """    
+        with self.s3.open(fin, 'rb') as f:
+            ftp.storbinary(f'STOR {fout}', f, callback=cb)
 
-                pass #transfer_file_gzip(s3file,out):
+    def s3_ftp_stream(self, file, pbar):
 
+        s3url = S3Url(file.cloud_url)
+        env = s3url.bucket.split('-')[-1]
+        compressed = self.is_compressed(file.cloud_url)
 
-if __name__ == '__main__':
-    #run('org-hca-data-archive-upload-dev/0169d6f3-f65b-4d8a-b04c-857eec3b805e/SRR3562314_1.fastq.gz')
-    #run('org-hca-data-archive-upload-staging/37f4c191-fbf3-4d58-915a-59d79d07185d/4861STDY7771115.mtx')
-    #transfer_file_gzip('org-hca-data-archive-upload-staging/37f4c191-fbf3-4d58-915a-59d79d07185d/MRC_Endo8715416.mtx', 'out1')
-    #transfer_file_gzip2('org-hca-data-archive-upload-staging/37f4c191-fbf3-4d58-915a-59d79d07185d/MRC_Endo8715416.mtx', 'out2')
+        with S3FTPStreamer.new_ftpcli() as ftp: 
+            FtpUploader.chdir(ftp, env)
+            FtpUploader.chdir(ftp, s3url.uuid)
 
-    #print(s3.size('org-hca-data-archive-upload-staging/37f4c191-fbf3-4d58-915a-59d79d07185d/4861STDY7771115.mtx'))
-    #print(ftp.size('4861STDY7771115.mtx'))
-    #transfer('org-hca-data-archive-upload-dev/0169d6f3-f65b-4d8a-b04c-857eec3b805e/SRR3562314_1.fastq.gz')
-    
-    fin = 'org-hca-data-archive-upload-staging/37f4c191-fbf3-4d58-915a-59d79d07185d/'
-    """
-    start = time.time()
-    transfer_file(fin, 'out1')
-    end = time.time()
-    print(end - start)    
+            if FtpUploader.file_exists(ftp, file.file_name) and FtpUploader.file_size(ftp, file.file_name) == file.size:
+                self.logger.info(f'Skipping {file.file_name} ({file.size} bytes). File exists in ENA FTP.')
+                file.error = 'File exists in ENA FTP.'
+                file.success = False
+            else:
+                
+                if compressed:
+                    self.logger.info(f'Streaming {file.file_name} ({file.size} bytes) to FTP.')
+                    self.stream_with_md5(ftp, file.cloud_url, file.file_name, lambda str: pbar.update(len(str))) 
+                else:
+                    self.logger.info(f'Compressing {file.file_name} ({file.size} bytes) / streaming {file.file_name}.gz to FTP.')
+                    self.stream_with_compression_and_md5(ftp, file.cloud_url, file.file_name, lambda str: pbar.update(len(str))) 
+                self.logger.info(f'Finish streaming {file.file_name}.')
 
-    start = time.time()
-    transfer_file_md5(fin, 'out2')
-    end = time.time()
-    print(end - start)
-    """
-    #start = time.time()
-    #transfer_file_compress(fin, 'out3')
-    #end = time.time()
-    #print(end - start)
-    print(calc_md5(fin))
+    BLOCKSIZE = 8192
+    def stream_with_md5(self, ftp, fin, fout, cb):
+        hash_md5 = hashlib.md5()
+        ftp.voidcmd('TYPE I')
+        with self.s3.open(fin, 'rb') as fp, ftp.transfercmd(f'STOR {fout}', None) as conn:
+            while 1:
+                buf = fp.read(BLOCKSIZE)
+                if not buf:
+                    break
+                hash_md5.update(buf)
+                conn.sendall(buf)
+                cb(buf)
+        ftp.voidresp()
+        ftp.storbinary(f'STOR {fout}.md5', BytesIO(bytes(hash_md5.hexdigest(), 'utf-8')))
 
+    def stream_with_compression_and_md5(self, ftp, fin, fout, cb):
+        fout = f'{fout}.gz'
+        hash_md5 = hashlib.md5()
+        ftp.voidcmd('TYPE I')
+        with self.s3.open(fin, 'rb') as fp, ftp.transfercmd(f'STOR {fout}', None) as conn:
+            while 1:
+                buf = fp.read(BLOCKSIZE)
+                if not buf:
+                    break
+                cbuf = gzip.compress(buf)
+                hash_md5.update(cbuf)
+                conn.sendall(cbuf)
+                cb(buf)
+        ftp.voidresp()
+        ftp.storbinary(f'STOR {fout}.md5', BytesIO(bytes(hash_md5.hexdigest(), 'utf-8')))
 
-## TODO:
-# run stream impl on a large submission and check runtime
-# on the EBI cluster / k8s cluster
-# check a queue / api to trigger run / return result
+    def stream_with_compression_and_md5_using_tmpfile(self, ftp, fin, fout, cb):
+        with self.s3.open(fin, 'rb') as f:
+            compressed_fp = tempfile.SpooledTemporaryFile() #BytesIO() #tempfile.NamedTemporaryFile()
+            hash_md5 = hashlib.md5()
+            with gzip.GzipFile(fileobj=compressed_fp, mode='wb') as gz:
+                shutil.copyfileobj(f, gz)
+            compressed_fp.seek(0)
+            ftp.storbinary(f'STOR {fout}.gz', compressed_fp, callback=cb) 
+            for chunk in iter(lambda: f.read(4096), b""):
+                hash_md5.update(chunk)
+            md5 = hash_md5.hexdigest()
+            ftp.storbinary(f'STOR {fout}.gz.md5', BytesIO(bytes(md5, 'utf-8')))
+            compressed_fp.close()
 
+    def is_compressed(self, s3url):
+        return s3url.endswith('.gz') and self.s3.read_block(s3url, 0, 2) == b'\x1f\x8b'
+
+    def start(self, res: DataArchiverRequest):
+        total_size = 0
+        for file in res.files:
+
+            if self.s3.exists(file.cloud_url):
+                size = self.s3.size(file.cloud_url)
+                total_size += size
+                file.size = size
+            else:
+                file.error = 'File not found.'
+                file.success = False
+        
+        total_files = len(res.files)
+        num_files = sum(map(lambda f : f.success, res.files))
+        
+        if total_files != num_files:
+            self.logger.info(f'{total_files - num_files} files not found.')
+        
+        self.logger.info('Streaming...')
+        pbar = tqdm(total=total_size, unit='B', unit_scale=True, desc=f'{num_files} files')
+        pool = ThreadPool() # cpu_count() DEFAULT_THREAD_COUNT=25
+
+        def cp(file):
+
+            if not file.success:
+                return
+
+            try:
+                self.s3_ftp_stream(file, pbar) 
+            except Exception as ex:
+                file.error = str(ex)
+                file.success = False
+                pass
+
+        pool.map_async(cp, res.files)
+        pool.close()
+        pool.join()
+        pbar.close()
+
+    def close():
+        pass
