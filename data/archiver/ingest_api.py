@@ -10,7 +10,7 @@ def handle_exception(f):
         try:
             return f(*args, **kwargs)
         except Exception as e:
-            #print(f'Ingest API exception in {f.__name__}')
+            logging.error(f'Ingest API exception in {f.__name__}')
             return []
     return func
 
@@ -63,12 +63,3 @@ class Ingest:
 
     def close(self):
         self.session.close()
-
-
-#if __name__ == "__main__": # python -m data.archiver.ingest_api
-def test_ingest_api():
-    ingest = Ingest()
-    ingest.get_submission('14df1f92-155c-4da2-97fc-85601dee64da')
-    if ingest.submission:
-        print(ingest.submission)
-        print(ingest.get_staging_area())

@@ -57,45 +57,45 @@ class Archiver:
         self.aws_client.get_files(res)
 
         self.logger.info(f'# step 2 compress files using gz')
-        def try_compress(f):
-            if (f.file_name.endswith('.gz')):
-                self.logger.info(f'Skipping {f.file_name}')
+        def try_compress(file):
+            if (file.file_name.endswith('.gz')):
+                self.logger.info(f'Skipping {file.file_name}')
             else:
-                self.logger.info(f'Compressing {f.file_name}')
+                self.logger.info(f'Compressing {file.file_name}')
                 try:
-                    compress(f)
-                    f.file_name = f'{f.file_name}.gz'
+                    compress(file)
+                    file.file_name = f'{file.file_name}.gz'
                 except:
-                    f.success = False
-                    f.error = 'Compression failed'
+                    file.success = False
+                    file.error = 'Compression failed'
 
-        for f in res.files:
-            if f.success:
-                try_compress(f)
+        for file in res.files:
+            if file.success:
+                try_compress(file)
 
         
         self.logger.info(f'# step 3 calculate checksums of compressed files (and create .md5 files)')
         checksum_files = []
-        def calc_checksum(f):
-            self.logger.info(f'Generating checksum {f.file_name}')
-            md5_file = f'{res.sub_uuid}/{f.file_name}.md5'
+        def calc_checksum(file):
+            self.logger.info(f'Generating checksum {file.file_name}')
+            md5_file = f'{res.sub_uuid}/{file.file_name}.md5'
             with open(md5_file,'a') as f1:
-                md5_str = md5(f'{res.sub_uuid}/{f.file_name}')
+                md5_str = md5(f'{res.sub_uuid}/{file.file_name}')
                 f1.write(md5_str)
-                f.md5 = md5_str
+                file.md5 = md5_str
             checksum_files.append(md5_file) 
 
-        for f in res.files:
-            if f.success:
-                calc_checksum(f)
+        for file in res.files:
+            if file.success:
+                calc_checksum(file)
 
         self.logger.info(f'# step 4 upload files to ENA upload area')
         
         self.ftp = FtpUploader(res)
         self.ftp.upload()
 
-        for f in res.files:
-            res.success = res.success and f.success
+        for file in res.files:
+            res.success = res.success and file.success
 
         return res
 
@@ -105,8 +105,8 @@ class Archiver:
         
         S3FTPStreamer(res).start()
 
-        for f in res.files:
-            res.success = res.success and f.success
+        for file in res.files:
+            res.success = res.success and file.success
 
         return res
 

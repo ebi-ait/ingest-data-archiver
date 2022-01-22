@@ -57,3 +57,22 @@ class DataArchiverResult:
 
     def to_dict(self):
         return json.loads(json.dumps(self, default=lambda o: o.__dict__))
+
+
+@dataclass
+class QueueConfig:
+    name: str
+    routing_key: str
+    exchange: str
+    exchange_type: str
+    retry: bool
+    retry_policy: dict
+
+
+@dataclass
+class AmqpConnConfig:
+    host: str
+    port: int
+
+    def broker_url(self):
+        return f'amqp://{self.host}:{str(self.port)}'
