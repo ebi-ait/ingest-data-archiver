@@ -101,9 +101,9 @@ class Archiver:
 
     def archive_files_via_streaming(self, res: DataArchiverResult):
 
-        self.logger.info(f'# stream sequence files from S3, (compress), calculate and upload to FTP on-the-fly')
+        self.logger.info(f'# stream sequence files from S3 to FTP, gzipping and calculating checksums on-the-fly')
         
-        S3FTPStreamer(res).start()
+        S3FTPStreamer().start(res)
 
         for file in res.files:
             res.success = res.success and file.success

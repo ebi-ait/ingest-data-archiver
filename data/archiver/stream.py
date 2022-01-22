@@ -1,7 +1,3 @@
-from io import BytesIO, StringIO
-import sys
-from tarfile import BLOCKSIZE
-import traceback
 import s3fs
 import hashlib
 import gzip
@@ -9,20 +5,19 @@ import shutil
 import logging
 from ftplib import FTP
 from io import BytesIO
-from memory_profiler import profile
 import tempfile
 from tqdm import tqdm
 from multiprocessing import cpu_count
 from multiprocessing.pool import ThreadPool
-from data.archiver.aws_s3_client import S3Url
 
+from data.archiver.aws_s3_client import S3Url
 from data.archiver.config import AWS_ACCESS_KEY, AWS_SECRET_KEY, ENA_FTP_HOST, ENA_WEBIN_USER, ENA_WEBIN_PWD
-from data.archiver.dataclass import DataArchiverRequest, DataArchiverResult, FileResult
+from data.archiver.dataclass import DataArchiverRequest
 from data.archiver.ftp_uploader import FtpUploader
 
 
 MAX_IN_MEM_FILE_COMPRESSION = 1024*1024*500 #500M
-
+BLOCKSIZE = 8192
 
 class S3FTPStreamer:
 
@@ -76,7 +71,6 @@ class S3FTPStreamer:
                     self.stream_with_compression_and_md5(ftp, file.cloud_url, file.file_name, lambda str: pbar.update(len(str))) 
                 self.logger.info(f'Finish streaming {file.file_name}.')
 
-    BLOCKSIZE = 8192
     def stream_with_md5(self, ftp, fin, fout, cb):
         hash_md5 = hashlib.md5()
         ftp.voidcmd('TYPE I')
