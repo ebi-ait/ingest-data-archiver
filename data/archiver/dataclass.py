@@ -18,7 +18,7 @@ class DataArchiverRequest:
         try:
             return DataArchiverRequest(data["sub_uuid"],
                                      data["files"] if "files" in data else [],
-                                     data["stream"] if "stream" in data else False)
+                                     data["stream"] if "stream" in data else True)
         except (KeyError, TypeError) as e:
             print(e)
             raise DataArchiverRequestParseExpection(e)
