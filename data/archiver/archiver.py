@@ -2,6 +2,7 @@ import os
 import logging
 from data.archiver.aws_s3_client import AwsS3
 from data.archiver.ftp_uploader import FtpUploader
+from data.archiver.stream import S3FTPStreamer
 from data.archiver.utils import compress, md5
 from data.archiver.dataclass import DataArchiverRequest, DataArchiverResult, FileResult
 from data.archiver.ingest_api import Ingest
@@ -41,14 +42,14 @@ class Archiver:
         try:
             # TODO logic here to decide between local copy or stream archive/upload to ena
             if req.stream:
-                return
+                result = self.archive_files_via_streaming(res)
             else:
                 result = self.archive_files_via_localcopy(res)
-                self.logger.info(result)
-                return result
+            self.logger.info(result)
+            return result
 
         except Exception as ex:
-            print(ex)
+            self.logger.error(str(ex))
 
     def archive_files_via_localcopy(self, res: DataArchiverResult):
 
@@ -98,6 +99,16 @@ class Archiver:
 
         return res
 
+    def archive_files_via_streaming(self, res: DataArchiverResult):
+
+        self.logger.info(f'# stream sequence files from S3, (compress), calculate and upload to FTP on-the-fly')
+        
+        S3FTPStreamer(res).start()
+
+        for f in res.files:
+            res.success = res.success and f.success
+
+        return res
 
     def close(self):
         self.ingest_api.close()
