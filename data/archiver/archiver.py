@@ -94,8 +94,7 @@ class Archiver:
         self.ftp = FtpUploader(res)
         self.ftp.upload()
 
-        for file in res.files:
-            res.success = res.success and file.success
+        res.update_status()
 
         return res
 
@@ -104,9 +103,7 @@ class Archiver:
         self.logger.info(f'# stream sequence files from S3 to FTP, gzipping and calculating checksums on-the-fly')
         
         S3FTPStreamer().start(res)
-
-        for file in res.files:
-            res.success = res.success and file.success
+        res.update_status()
 
         return res
 

@@ -20,7 +20,6 @@ class DataArchiverRequest:
                                      data["files"] if "files" in data else [],
                                      data["stream"] if "stream" in data else True)
         except (KeyError, TypeError) as e:
-            print(e)
             raise DataArchiverRequestParseExpection(e)
 
 
@@ -57,6 +56,10 @@ class DataArchiverResult:
 
     def to_dict(self):
         return json.loads(json.dumps(self, default=lambda o: o.__dict__))
+
+    def update_status(self):
+        for file in self.files:
+            self.success = self.success and file.success
 
 
 @dataclass

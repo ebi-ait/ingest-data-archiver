@@ -54,7 +54,6 @@ class _Listener(ConsumerProducerMixin):
             #self.logger.exception(e)
         except Exception as e:
             self.logger.info(f'Data archiving request failed: {body}')
-            print(e)
             #self.logger.exception(e)
 
         msg.ack()
