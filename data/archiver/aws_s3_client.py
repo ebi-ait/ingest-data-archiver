@@ -47,9 +47,6 @@ class AwsS3:
                              aws_access_key_id=AWS_ACCESS_KEY,
                              aws_secret_access_key=AWS_SECRET_KEY).resource('s3', config=Config(s3={'use_accelerate_endpoint': True})).meta.client
 
-    def new_session(self):
-        return 
-
     def file_exists(self, s3url):
         response = self.s3_cli.list_objects_v2(Bucket=s3url.bucket, Prefix=s3url.key)
 

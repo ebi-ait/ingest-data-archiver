@@ -47,7 +47,7 @@ class S3FTPStreamer:
         with self.s3.open(fin, 'rb') as f:
             ftp.storbinary(f'STOR {fout}', f, callback=cb)
 
-    def s3_ftp_stream(self, file, pbar):
+    def s3_ftp_stream(self, file, callback):
 
         s3url = S3Url(file.cloud_url)
         env = s3url.bucket.split('-')[-1]
@@ -65,16 +65,16 @@ class S3FTPStreamer:
                 
                 if compressed:
                     self.logger.info(f'Streaming {file.file_name} ({file.size} bytes) to FTP.')
-                    self.stream_with_md5(ftp, file.cloud_url, file.file_name, lambda str: pbar.update(len(str))) 
+                    self.stream_with_md5(ftp, file, lambda str: callback(len(str))) 
                 else:
                     self.logger.info(f'Compressing {file.file_name} ({file.size} bytes) / streaming {file.file_name}.gz to FTP.')
-                    self.stream_with_compression_and_md5(ftp, file.cloud_url, file.file_name, lambda str: pbar.update(len(str))) 
+                    self.stream_with_compression_and_md5(ftp, file, lambda str: callback(len(str))) 
                 self.logger.info(f'Finish streaming {file.file_name}.')
 
-    def stream_with_md5(self, ftp, fin, fout, cb):
+    def stream_with_md5(self, ftp, file, cb):
         hash_md5 = hashlib.md5()
         ftp.voidcmd('TYPE I')
-        with self.s3.open(fin, 'rb') as fp, ftp.transfercmd(f'STOR {fout}', None) as conn:
+        with self.s3.open(file.cloud_url, 'rb') as fp, ftp.transfercmd(f'STOR {file.file_name}', None) as conn:
             while 1:
                 buf = fp.read(BLOCKSIZE)
                 if not buf:
@@ -83,13 +83,15 @@ class S3FTPStreamer:
                 conn.sendall(buf)
                 cb(buf)
         ftp.voidresp()
-        ftp.storbinary(f'STOR {fout}.md5', BytesIO(bytes(hash_md5.hexdigest(), 'utf-8')))
+        file.md5 = hash_md5.hexdigest()
+        ftp.storbinary(f'STOR {file.file_name}.md5', BytesIO(bytes(file.md5, 'utf-8')))
+        
 
-    def stream_with_compression_and_md5(self, ftp, fin, fout, cb):
-        fout = f'{fout}.gz'
+    def stream_with_compression_and_md5(self, ftp, file, cb):
+        fout = f'{file.file_name}.gz'
         hash_md5 = hashlib.md5()
         ftp.voidcmd('TYPE I')
-        with self.s3.open(fin, 'rb') as fp, ftp.transfercmd(f'STOR {fout}', None) as conn:
+        with self.s3.open(file.cloud_url, 'rb') as fp, ftp.transfercmd(f'STOR {fout}', None) as conn:
             while 1:
                 buf = fp.read(BLOCKSIZE)
                 if not buf:
@@ -99,7 +101,8 @@ class S3FTPStreamer:
                 conn.sendall(cbuf)
                 cb(buf)
         ftp.voidresp()
-        ftp.storbinary(f'STOR {fout}.md5', BytesIO(bytes(hash_md5.hexdigest(), 'utf-8')))
+        file.md5 = hash_md5.hexdigest()
+        ftp.storbinary(f'STOR {fout}.md5', BytesIO(bytes(file.md5, 'utf-8')))
 
     def stream_with_compression_and_md5_using_tmpfile(self, ftp, fin, fout, cb):
         with self.s3.open(fin, 'rb') as f:
@@ -135,27 +138,27 @@ class S3FTPStreamer:
         
         if total_files != num_files:
             self.logger.info(f'{total_files - num_files} files not found.')
-        
-        self.logger.info('Streaming...')
-        pbar = tqdm(total=total_size, unit='B', unit_scale=True, desc=f'{num_files} files')
-        pool = ThreadPool() # cpu_count() DEFAULT_THREAD_COUNT=25
 
+        pbar = tqdm(total=total_size, unit='B', unit_scale=True, desc=f'{num_files} files', mininterval=2)
+        pool = ThreadPool() # cpu_count() DEFAULT_THREAD_COUNT=25
         def cp(file):
 
             if not file.success:
                 return
 
             try:
-                self.s3_ftp_stream(file, pbar) 
+                self.s3_ftp_stream(file, pbar.update) 
             except Exception as ex:
                 file.error = str(ex)
                 file.success = False
                 pass
+
+        self.logger.info('Streaming...')
 
         pool.map_async(cp, res.files)
         pool.close()
         pool.join()
         pbar.close()
 
-    def close():
+    def close(self):
         pass
