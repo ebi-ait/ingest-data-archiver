@@ -1,49 +1,12 @@
-from kombu.mixins import ConsumerProducerMixin
-from kombu import Connection, Consumer, Message, Queue, Exchange
-
-from config import QueueConfig, AmqpConnConfig
-
-from typing import Type, List, Dict
-from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
-
 import logging
 import json
+from kombu.mixins import ConsumerProducerMixin
+from kombu import Connection, Consumer, Message, Queue, Exchange
+from typing import Type, List
+from concurrent.futures import ThreadPoolExecutor
 
-
-class DataArchiverRequestParseExpection(Exception):
-    pass
-
-
-@dataclass
-class DataArchiverRequest:
-    sub_uuid: str
-    files: List[str]
-
-    @staticmethod
-    def from_dict(data: Dict) -> 'DataArchiverRequest':
-        try:
-            return DataArchiverRequest(data["sub_uuid"],
-                                     data["files"] if "files" in data else [])
-        except (KeyError, TypeError) as e:
-            print(e)
-            raise DataArchiverRequestParseExpection(e)
-
-
-@dataclass
-class FileResult:
-    file_name: str
-    md5: str
-    success: bool
-
-
-@dataclass
-class DataArchiverResult:
-    sub_uuid: str
-    success: bool
-    files: List[FileResult]
-
-
+from data.archiver.archiver import Archiver
+from data.archiver.dataclass import AmqpConnConfig, QueueConfig, DataArchiverRequest
 
 
 class _Listener(ConsumerProducerMixin):
@@ -76,15 +39,15 @@ class _Listener(ConsumerProducerMixin):
             req = DataArchiverRequest.from_dict(dict)
             self.logger.info(f'Received data archiving request for submission uuid {req.sub_uuid}')
 
-            ## archiver ##
-            
-            self.logger.info(f'Archived data for submission uuid {req.sub_uuid}')
-            
-            self.producer.publish(json.loads(body),
+            result = Archiver().start(req)
+            self.producer.publish(result.to_dict(),
                 exchange=self.pub_queue_config.exchange,
                 routing_key=self.pub_queue_config.routing_key,
                 retry=self.pub_queue_config.retry,
                 retry_policy=self.pub_queue_config.retry_policy)
+            
+            self.logger.info(f'Archived data for submission uuid {req.sub_uuid}')
+            
 
         except ValueError as e:
             self.logger.info(f'Invalid JSON request: {body}')
