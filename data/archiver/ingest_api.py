@@ -1,8 +1,14 @@
+from email.policy import HTTP
+from http import HTTPStatus
 import json
+from shutil import ExecError
+from urllib.error import HTTPError
 import requests
 import functools
 import logging
+from datetime import datetime
 from data.archiver.config import INGEST_API
+from data.archiver.dataclass import FileResult
 
 def handle_exception(f):
     @functools.wraps(f)
@@ -71,6 +77,32 @@ class Ingest:
                 url = response.json()["_links"]["next"]["href"]
                 self.get_all(url, entity_type, entities)
         return entities
+
+    #@handle_exception
+    def patch_files(self, files: [FileResult]):
+        for file in files:
+            if not file.success:
+                continue
+            response = self.session.get(f'{INGEST_API}files/search/findByUuid?uuid={file.uuid}')
+            if response.status_code == HTTPStatus.OK:
+                file_url = response.json()["_links"]["self"]["href"]
+                archive_result = {
+                    "fileArchiveResult": {
+                        "lastArchived":  datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+                        "compressed": file.compressed,
+                        "md5": file.md5,
+                        "enaUploadPath": file.ena_upload_path,
+                        "error": file.error
+                    }
+                }
+                patch_response = self.session.patch(file_url, json.dumps(archive_result), headers={ 'Content-type':'application/json' })
+                if patch_response.status_code == HTTPStatus.ACCEPTED:
+                    self.logger.info(f"Patched {file_url} {archive_result}")
+                else:
+                    self.logger.info(f"Could not patch {file_url}: {patch_response.status_code} ")
+            else:
+                self.logger.info(f"Could not get {file_url}: {response.status_code} ")
+
 
     def close(self):
         self.session.close()
