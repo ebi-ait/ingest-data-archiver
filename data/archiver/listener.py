@@ -6,7 +6,9 @@ from typing import Type, List
 from concurrent.futures import ThreadPoolExecutor
 
 from data.archiver.archiver import Archiver
-from data.archiver.dataclass import AmqpConnConfig, QueueConfig, DataArchiverRequest
+from data.archiver.aws_s3_client import AwsS3
+from data.archiver.dataclass import AmqpConnConfig, DataArchiverResult, FileResult, QueueConfig, DataArchiverRequest
+from data.archiver.ingest_api import Ingest
 
 
 class _Listener(ConsumerProducerMixin):
@@ -34,27 +36,35 @@ class _Listener(ConsumerProducerMixin):
         return self.executor.submit(lambda: self._data_archiver_message_handler(body, msg))
 
     def _data_archiver_message_handler(self, body: str, msg: Message):
+        ingest_cli = Ingest()
         try:
             dict = json.loads(body)
             req = DataArchiverRequest.from_dict(dict)
             self.logger.info(f'Received data archiving request for submission uuid {req.sub_uuid}')
 
-            result = Archiver().start(req)
-            self.producer.publish(result.to_dict(),
-                exchange=self.pub_queue_config.exchange,
-                routing_key=self.pub_queue_config.routing_key,
-                retry=self.pub_queue_config.retry,
-                retry_policy=self.pub_queue_config.retry_policy)
-            
+            result = Archiver(ingest_cli, AwsS3()).start(req)            
             self.logger.info(f'Archived data for submission uuid {req.sub_uuid}')
             
 
         except ValueError as e:
-            self.logger.info(f'Invalid JSON request: {body}')
+            error_msg = f'Invalid data archiving request: {body}'
+            self.logger.info(error_msg)
+            result = DataArchiverResult(req.sub_uuid, success=False, error=error_msg)
             #self.logger.exception(e)
         except Exception as e:
-            self.logger.info(f'Data archiving request failed: {body}')
+            error_msg = f'Data archiving request failed: {body}'
+            self.logger.info(error_msg)
+            result = DataArchiverResult(req.sub_uuid, success=False, error=error_msg)
             #self.logger.exception(e)
+
+        #self.producer.publish(result.to_dict(),
+        #    exchange=self.pub_queue_config.exchange,
+        #    routing_key=self.pub_queue_config.routing_key,
+        #    retry=self.pub_queue_config.retry,
+        #    retry_policy=self.pub_queue_config.retry_policy)
+        
+        #ingest_cli.patch_submission(result)
+        ingest_cli.patch_files(result.files)
 
         msg.ack()
 
