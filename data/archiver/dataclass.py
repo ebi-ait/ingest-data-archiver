@@ -22,12 +22,6 @@ class DataArchiverRequest:
         except (KeyError, TypeError) as e:
             raise DataArchiverRequestParseExpection(e)
 
-"""
-needed to make these changes as part of #669
-- using file uuid instead of name in ingest-data-archiver request
-- patch file document with data archiving result including ena_upload_path, md5 information, any error
-
-"""
 
 @dataclass
 class FileResult:
