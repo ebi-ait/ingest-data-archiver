@@ -22,21 +22,33 @@ class DataArchiverRequest:
         except (KeyError, TypeError) as e:
             raise DataArchiverRequestParseExpection(e)
 
+"""
+needed to make these changes as part of #669
+- using file uuid instead of name in ingest-data-archiver request
+- patch file document with data archiving result including ena_upload_path, md5 information, any error
+
+"""
 
 @dataclass
 class FileResult:
+    uuid: str
     file_name: str
     cloud_url: str
     size: int
+    compressed: bool
     md5: str
+    ena_upload_path: str
     success: bool
     error: str
 
-    def __init__(self, file_name, cloud_url, size=0, md5=None, success=True, error=None):
+    def __init__(self, uuid, file_name, cloud_url, size=0, compressed=False, md5=None, ena_upload_path=None, success=True, error=None):
+        self.uuid = uuid
         self.file_name = file_name
         self.cloud_url = cloud_url
-        self.size = size
-        self.md5 = md5
+        self.size = size                # s3 size to be more accurate, not size from file metadata
+        self.compressed = compressed    # true is file is compressed during archiving
+        self.md5 = md5                  # calculated md5 checksum
+        self.ena_upload_path = ena_upload_path    # ena upload area sub directory. default is root.
         self.success = success
         self.error = error
 
@@ -58,8 +70,14 @@ class DataArchiverResult:
         return json.loads(json.dumps(self, default=lambda o: o.__dict__))
 
     def update_status(self):
+        not_success = 0
         for file in self.files:
             self.success = self.success and file.success
+            if not file.success:
+                not_success += 1
+        if not_success > 0:
+            self.error = f"{not_success} file(s) failed to archived."
+        
 
 
 @dataclass
