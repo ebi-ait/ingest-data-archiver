@@ -26,34 +26,59 @@ E.g. 1 Without `files` property.
 E.g. 2
 ```
 {
-   "sub_uuid":"6e6097bc-b23e-4f09-86a8-8a5a0fc06113",
+   "sub_uuid": "6e6097bc-b23e-4f09-86a8-8a5a0fc06113",
    "files":[
-      "read1.fq",
-      "read2.fq"
+      "f5e465ca-543e-44f5-9045-aebce6eb9ac3",
+      "4320dc71-ac5f-4cb3-b1d3-d9a253a59e3b",
+      ...
    ]
 }
 ```
 
 
 ## Data archiving result
+
+E.g. 1 
 ```
 {
-   "sub_uuid":"6e6097bc-b23e-4f09-86a8-8a5a0fc06113",
-   "success":true,
-   "error":"msg",
+   "sub_uuid": "6e6097bc-b23e-4f09-86a8-8a5a0fc06113",
+   "success": false,
+   "error": "No sequence files in submission",
+   "files":[]
+}
+
+```
+
+E.g. 2
+```
+{
+   "sub_uuid": "6e6097bc-b23e-4f09-86a8-8a5a0fc06113",
+   "success": true,
+   "error": null,
    "files":[
       {
-         "file_name":"read1.fq",
-         "md5":"098f6bcd4621d373cade4e832627b4f6",
-         "success":true,
-         "error":"msg"
+         "uuid": "f5e465ca-543e-44f5-9045-aebce6eb9ac3",
+         "file_name": "read1.fq",
+         "cloud_url": "s3://{bucket_name}/{sub_uuid}/read1.fq",
+         "size": 100,
+         "compressed": true,
+         "md5": "098f6bcd4621d373cade4e832627b4f6",
+         "ena_upload_path": "{env}/{sub_uuid}/read1.fq.gz",
+         "success": true,
+         "error": null
       },
       {
-         "file_name":"read2.fq",
-         "md5":"ad0234829205b9033196ba818f7a872b",
-         "success":true,
-         "error":"msg"
-      }
+         "uuid": "4320dc71-ac5f-4cb3-b1d3-d9a253a59e3b",
+         "file_name": "read2.fq.gz",
+         "cloud_url": "s3://{bucket_name}/{sub_uuid}/read2.fq.gz",
+         "size": 100,
+         "compressed": false,
+         "md5": "098f6bcd4621d373cade4e832627b4f6",
+         "ena_upload_path": "{env}/{sub_uuid}/read2.fq.gz",
+         "success": true,
+         "error": null
+      },
+      ...
    ]
 }
 ```
