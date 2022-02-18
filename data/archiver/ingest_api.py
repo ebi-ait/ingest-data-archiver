@@ -38,8 +38,7 @@ class Ingest:
             self.get_submission(uuid)
         files_url = self.submission['_links']['files']['href']
         self.logger.info(f'Files url {files_url}')
-        response = self.session.get(files_url)
-        self.files = json.loads(response.text)
+        self.files = self.get_all(files_url, "files", [])
         return self.files
 
     @handle_exception
@@ -48,11 +47,12 @@ class Ingest:
             self.get_files(uuid)
         self.s3_files = []
 
-        for file in self.files['_embedded']['files']:
+        for file in self.files:
             if (file['content']['describedBy']).endswith('sequence_file'):
+                uuid = file['uuid']['uuid']
                 file_name = file['content']['file_core']['file_name']
                 cloud_url = file['cloudUrl']
-                self.s3_files.append({"file_name": file_name, "cloud_url": cloud_url})
+                self.s3_files.append({"uuid": uuid, "file_name": file_name, "cloud_url": cloud_url})
     
         return self.s3_files
 
@@ -60,6 +60,17 @@ class Ingest:
         if self.submission and self.submission['stagingDetails']:
             return self.submission['stagingDetails']['stagingAreaLocation']['value']
         return None
+
+    def get_all(self, url, entity_type, entities=[]):
+        response = self.session.get(url)
+        response.raise_for_status()
+        if "_embedded" in response.json():
+            entities += response.json()["_embedded"][entity_type]
+
+            if "next" in response.json()["_links"]:
+                url = response.json()["_links"]["next"]["href"]
+                self.get_all(url, entity_type, entities)
+        return entities
 
     def close(self):
         self.session.close()
