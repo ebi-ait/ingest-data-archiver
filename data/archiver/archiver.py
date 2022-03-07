@@ -30,15 +30,14 @@ class Archiver:
 
         if not req.files:
             # archive all files
-            res_files = list(map(lambda f: FileResult(f["uuid"], f["file_name"], f["cloud_url"]), sequence_files))
+            res_files = list(map(FileResult.from_file, sequence_files))
         else:
             def file_result(uuid):
                 for f in sequence_files:
                     if f["uuid"] == uuid:
                         return FileResult(f["uuid"], f["file_name"], f["cloud_url"])
-                return FileResult(uuid, None, None, success=False, error="File not found in Ingest.")
+                return FileResult.not_found_error(uuid)
 
-            #staging_area = self.ingest_cli.get_staging_area()
             res_files = list(map(file_result, req.files))
         
         res = DataArchiverResult(req.sub_uuid, files=res_files)
@@ -115,6 +114,5 @@ class Archiver:
 
     def close(self):
         self.ingest_cli.close()
-        #self.aws_cli.close()
         if self.ftp:
             self.ftp.close()

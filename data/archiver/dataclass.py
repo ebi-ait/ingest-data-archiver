@@ -46,6 +46,14 @@ class FileResult:
         self.success = success
         self.error = error
 
+    @classmethod
+    def from_file(cls, file):
+        return cls(file["uuid"], file["file_name"], file["cloud_url"])
+
+    @classmethod
+    def not_found_error(cls, uuid):
+        return cls(uuid, None, None, success=False, error="File not found in Ingest.")
+
 
 @dataclass
 class DataArchiverResult:

@@ -56,7 +56,6 @@ class TestArchiver(unittest.TestCase):
         with patch('data.archiver.archiver.Ingest') as mock:
             mock_ingest = mock.return_value
             mock_ingest.get_sequence_files.return_value = [{"uuid": self.file_uuid, "file_name": self.file_name, "cloud_url": f's3://{self.s3_file}'}]
-            #mock_ingest.get_staging_area.return_value = f's3://{TEST_BUCKET}/{self.sub_uuid}/'
 
             self.logger.info(f'Starting data archiver ')
             req = DataArchiverRequest.from_dict({"sub_uuid": f"{self.sub_uuid}", "files": [ f"{self.file_uuid}" ]}) 

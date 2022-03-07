@@ -70,31 +70,24 @@ class Ingest:
     def get_all(self, url, entity_type, entities=[]):
         response = self.session.get(url)
         response.raise_for_status()
-        if "_embedded" in response.json():
-            entities += response.json()["_embedded"][entity_type]
+        json_response = response.json()
+        if "_embedded" in json_response:
+            entities += json_response["_embedded"][entity_type]
 
-            if "next" in response.json()["_links"]:
-                url = response.json()["_links"]["next"]["href"]
+            if "next" in json_response["_links"]:
+                url = json_response["_links"]["next"]["href"]
                 self.get_all(url, entity_type, entities)
         return entities
 
-    #@handle_exception
     def patch_files(self, files: [FileResult]):
         for file in files:
             if not file.success:
                 continue
-            response = self.session.get(f'{INGEST_API}files/search/findByUuid?uuid={file.uuid}')
+            params = {'uuid': file.uuid}
+            response = self.session.get(f'{INGEST_API}files/search/findByUuid', params=params)
             if response.status_code == HTTPStatus.OK:
                 file_url = response.json()["_links"]["self"]["href"]
-                archive_result = {
-                    "fileArchiveResult": {
-                        "lastArchived":  datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
-                        "compressed": file.compressed,
-                        "md5": file.md5,
-                        "enaUploadPath": file.ena_upload_path,
-                        "error": file.error
-                    }
-                }
+                archive_result = Ingest.archive_result_from_filemeta(file)
                 patch_response = self.session.patch(file_url, json.dumps(archive_result), headers={ 'Content-type':'application/json' })
                 if patch_response.status_code == HTTPStatus.ACCEPTED:
                     self.logger.info(f"Patched {file_url} {archive_result}")
@@ -103,6 +96,17 @@ class Ingest:
             else:
                 self.logger.info(f"Could not get {file_url}: {response.status_code} ")
 
+    @staticmethod
+    def archive_result_from_filemeta(file):
+        return {
+            "fileArchiveResult": {
+                "lastArchived": datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+                "compressed": file.compressed,
+                "md5": file.md5,
+                "enaUploadPath": file.ena_upload_path,
+                "error": file.error
+            }
+        }
 
     def close(self):
         self.session.close()

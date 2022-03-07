@@ -50,20 +50,12 @@ class _Listener(ConsumerProducerMixin):
             error_msg = f'Invalid data archiving request: {body}'
             self.logger.info(error_msg)
             result = DataArchiverResult(req.sub_uuid, success=False, error=error_msg)
-            #self.logger.exception(e)
+
         except Exception as e:
             error_msg = f'Data archiving request failed: {body}'
             self.logger.info(error_msg)
             result = DataArchiverResult(req.sub_uuid, success=False, error=error_msg)
-            #self.logger.exception(e)
 
-        #self.producer.publish(result.to_dict(),
-        #    exchange=self.pub_queue_config.exchange,
-        #    routing_key=self.pub_queue_config.routing_key,
-        #    retry=self.pub_queue_config.retry,
-        #    retry_policy=self.pub_queue_config.retry_policy)
-        
-        #ingest_cli.patch_submission(result)
         ingest_cli.patch_files(result.files)
 
         msg.ack()
