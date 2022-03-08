@@ -52,7 +52,7 @@ class FileResult:
 
     @classmethod
     def not_found_error(cls, uuid):
-        return cls(uuid, None, None, success=False, error="File not found in Ingest.")
+        return cls(uuid, file_name=None, cloud_url=None, success=False, error="File not found in Ingest.")
 
 
 @dataclass
