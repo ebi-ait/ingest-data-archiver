@@ -59,13 +59,15 @@ class AwsS3:
 
         total_size = 0
         for file in res.files:
+            if not file.success:
+                continue
 
             exists, size = self.file_exists(S3Url(file.cloud_url))
             if exists:
                 total_size += size
                 file.size = size
             else:
-                file.error = 'File not found.'
+                file.error = 'File not found in S3.'
                 file.success = False
         
         def download(file):

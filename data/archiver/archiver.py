@@ -1,18 +1,17 @@
-import os
 import logging
 from data.archiver.aws_s3_client import AwsS3
 from data.archiver.ftp_uploader import FtpUploader
+from data.archiver.ingest_api import Ingest
 from data.archiver.stream import S3FTPStreamer
 from data.archiver.utils import compress, md5
 from data.archiver.dataclass import DataArchiverRequest, DataArchiverResult, FileResult
-from data.archiver.ingest_api import Ingest
 
 
 class Archiver:
 
-    def __init__(self):
-        self.ingest_api = Ingest()
-        self.aws_client = AwsS3()
+    def __init__(self, ingest_cli: Ingest, aws_cli: AwsS3):
+        self.ingest_cli = ingest_cli
+        self.aws_cli = aws_cli
         self.ftp = None
         
         self.logger = logging.getLogger(__name__)
@@ -20,21 +19,26 @@ class Archiver:
 
     def start(self, req: DataArchiverRequest):
         self.logger.info(req)
-        self.logger.info(f'Getting sequence files for submission {req.sub_uuid} from INGEST_API')
-        sequence_files = self.ingest_api.get_sequence_files(req.sub_uuid)
+        self.logger.info(f'Getting sequence files for submission {req.sub_uuid} from Ingest.')
+        sequence_files = self.ingest_cli.get_sequence_files(req.sub_uuid)
         self.logger.info(sequence_files)
 
         if not sequence_files:
-            res = DataArchiverResult(req.sub_uuid, success=False, error='No sequence files in submission')
+            res = DataArchiverResult(req.sub_uuid, success=False, error='No sequence files in submission.')
             self.logger.info(res)
             return res
 
         if not req.files:
             # archive all files
-            res_files = list(map(lambda f: FileResult(f["file_name"], f["cloud_url"]), sequence_files))
+            res_files = list(map(FileResult.from_file, sequence_files))
         else:
-            staging_area = self.ingest_api.get_staging_area()
-            res_files = list(map(lambda f: FileResult(f, staging_area + f), req.files))
+            def file_result(uuid):
+                for f in sequence_files:
+                    if f["uuid"] == uuid:
+                        return FileResult(f["uuid"], f["file_name"], f["cloud_url"])
+                return FileResult.not_found_error(uuid)
+
+            res_files = list(map(file_result, req.files))
         
         res = DataArchiverResult(req.sub_uuid, files=res_files)
         self.logger.info(res)
@@ -54,7 +58,7 @@ class Archiver:
     def archive_files_via_localcopy(self, res: DataArchiverResult):
 
         self.logger.info(f'# step 1 download sequence files from S3')
-        self.aws_client.get_files(res)
+        self.aws_cli.get_files(res)
 
         self.logger.info(f'# step 2 compress files using gz')
         def try_compress(file):
@@ -65,6 +69,7 @@ class Archiver:
                 try:
                     compress(file)
                     file.file_name = f'{file.file_name}.gz'
+                    file.compressed = True
                 except:
                     file.success = False
                     file.error = 'Compression failed'
@@ -108,7 +113,6 @@ class Archiver:
         return res
 
     def close(self):
-        self.ingest_api.close()
-        #self.aws_client.close()
+        self.ingest_cli.close()
         if self.ftp:
             self.ftp.close()
