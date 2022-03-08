@@ -52,6 +52,8 @@ class S3FTPStreamer:
         s3url = S3Url(file.cloud_url)
         env = s3url.bucket.split('-')[-1]
         compressed = self.is_compressed(file.cloud_url)
+        
+        file.ena_upload_path = f"{env}/{s3url.uuid}/"
 
         with S3FTPStreamer.new_ftpcli() as ftp: 
             FtpUploader.chdir(ftp, env)
@@ -59,7 +61,7 @@ class S3FTPStreamer:
 
             if FtpUploader.file_exists(ftp, file.file_name) and FtpUploader.file_size(ftp, file.file_name) == file.size:
                 self.logger.info(f'Skipping {file.file_name} ({file.size} bytes). File exists in ENA FTP.')
-                file.error = 'File exists in ENA FTP.'
+                file.error = 'File already exists in ENA upload area.'
                 file.success = False
             else:
                 
@@ -84,6 +86,7 @@ class S3FTPStreamer:
                 cb(buf)
         ftp.voidresp()
         file.md5 = hash_md5.hexdigest()
+        file.ena_upload_path += file.file_name
         ftp.storbinary(f'STOR {file.file_name}.md5', BytesIO(bytes(file.md5, 'utf-8')))
         
 
@@ -102,6 +105,8 @@ class S3FTPStreamer:
                 cb(buf)
         ftp.voidresp()
         file.md5 = hash_md5.hexdigest()
+        file.compressed = True
+        file.ena_upload_path += fout
         ftp.storbinary(f'STOR {fout}.md5', BytesIO(bytes(file.md5, 'utf-8')))
 
     def stream_with_compression_and_md5_using_tmpfile(self, ftp, fin, fout, cb):
@@ -124,13 +129,15 @@ class S3FTPStreamer:
     def start(self, res: DataArchiverRequest):
         total_size = 0
         for file in res.files:
+            if not file.success:
+                continue
 
             if self.s3.exists(file.cloud_url):
                 size = self.s3.size(file.cloud_url)
                 total_size += size
                 file.size = size
             else:
-                file.error = 'File not found.'
+                file.error = 'File not found in S3.'
                 file.success = False
         
         total_files = len(res.files)

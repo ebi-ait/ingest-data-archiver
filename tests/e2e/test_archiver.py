@@ -3,18 +3,21 @@ import sys
 import s3fs
 import uuid
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 import tempfile
 import logging
 import random
 from ftplib import FTP
 from data.archiver.archiver import Archiver
+from data.archiver.aws_s3_client import AwsS3
 from data.archiver.dataclass import DataArchiverRequest
 from data.archiver.config import AWS_ACCESS_KEY, AWS_SECRET_KEY, ENA_FTP_DIR, ENA_FTP_HOST, ENA_WEBIN_USER, ENA_WEBIN_PWD
 from data.archiver.ftp_uploader import FtpUploader
+from data.archiver.ingest_api import Ingest
 
 TEST_BUCKET = "org-hca-data-archive-upload-dev"
 
+# TODO move this to the integration tests suite as not all dep components are mocked.
 class TestArchiver(unittest.TestCase):
 
     def setUp(self):
@@ -34,6 +37,7 @@ class TestArchiver(unittest.TestCase):
         file_size = random.randint(1024, 1024*1024) # in bytes (between 1Kb and 1Mb)
         self.tmp_file = tempfile.NamedTemporaryFile()
         self.tmp_file.write(os.urandom(file_size))
+        self.file_uuid = str(uuid.uuid4())
         self.file_name = os.path.basename(self.tmp_file.name)
         self.logger.info(f'Temp file: {self.tmp_file.name} {file_size} bytes')
 
@@ -48,21 +52,20 @@ class TestArchiver(unittest.TestCase):
         super().setUp()
 
     def test_archive(self):
-        self.logger.info(f'Mocking ingest service as this submission is not in Ingest')
+        self.logger.info(f'Mocking ingest service as Ingest will not contain test submission')
         with patch('data.archiver.archiver.Ingest') as mock:
             mock_ingest = mock.return_value
-            mock_ingest.get_sequence_files.return_value = [{"file_name": self.file_name, "cloud_url": f's3://{self.s3_file}'}]
-            mock_ingest.get_staging_area.return_value = f's3://{TEST_BUCKET}/{self.sub_uuid}/'
+            mock_ingest.get_sequence_files.return_value = [{"uuid": self.file_uuid, "file_name": self.file_name, "cloud_url": f's3://{self.s3_file}'}]
 
             self.logger.info(f'Starting data archiver ')
-            req = DataArchiverRequest.from_dict({"sub_uuid": f"{self.sub_uuid}", "files": [ f"{self.file_name}" ]}) 
-            archiver = Archiver()
+            req = DataArchiverRequest.from_dict({"sub_uuid": f"{self.sub_uuid}", "files": [ f"{self.file_uuid}" ]}) 
+            archiver = Archiver(mock_ingest, AwsS3())
             archiver.start(req)
             archiver.close()
 
-            self.logger.info(f'Finish. Checking expected files in FTP location.')
-            assert FtpUploader.file_exists(self.ftp, f'{self.file_name}.gz') == True
-            assert FtpUploader.file_exists(self.ftp, f'{self.file_name}.gz.md5') == True
+        self.logger.info(f'Finish. Checking expected files in FTP location.')
+        assert FtpUploader.file_exists(self.ftp, f'{self.file_name}.gz') == True
+        assert FtpUploader.file_exists(self.ftp, f'{self.file_name}.gz.md5') == True
 
     def tearDown(self):
         self.logger.info('Local clean up')
