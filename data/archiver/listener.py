@@ -32,14 +32,13 @@ class _Listener(ConsumerProducerMixin):
                                         prefetch_count=1)
         return [consumer]
     
-    def data_archiver_message_handler(self, body: str, msg: Message):
+    def data_archiver_message_handler(self, body: dict, msg: Message):
         return self.executor.submit(lambda: self._data_archiver_message_handler(body, msg))
 
-    def _data_archiver_message_handler(self, body: str, msg: Message):
+    def _data_archiver_message_handler(self, body: dict, msg: Message):
         ingest_cli = Ingest()
         try:
-            dict = json.loads(body)
-            req = DataArchiverRequest.from_dict(dict)
+            req = DataArchiverRequest.from_dict(body)
             self.logger.info(f'Received data archiving request for submission uuid {req.sub_uuid}')
 
             result = Archiver(ingest_cli, AwsS3()).start(req)            
