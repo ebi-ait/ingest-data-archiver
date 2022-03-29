@@ -44,10 +44,10 @@ class _Listener(ConsumerProducerMixin):
 
             req = DataArchiverRequest.from_dict(body)
             sub_uuid = req.sub_uuid
-            self.logger.info(f'Received data archiving request for submission uuid {req.sub_uuid}')
+            self.logger.info(f'Received data archiving request for submission uuid {sub_uuid}')
 
             result = Archiver(ingest_cli, AwsS3()).start(req)            
-            self.logger.info(f'Archived data for submission uuid {req.sub_uuid}')
+            self.logger.info(f'Archived data for submission uuid {sub_uuid}')
 
         except (ValueError, TypeError) as e:
             error_msg = f'Invalid data archiving request {body}: {str(e)}'
