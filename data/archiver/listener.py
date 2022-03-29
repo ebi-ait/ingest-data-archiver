@@ -32,22 +32,32 @@ class _Listener(ConsumerProducerMixin):
                                         prefetch_count=1)
         return [consumer]
     
-    def data_archiver_message_handler(self, body: dict, msg: Message):
+    def data_archiver_message_handler(self, body, msg: Message):
         return self.executor.submit(lambda: self._data_archiver_message_handler(body, msg))
 
-    def _data_archiver_message_handler(self, body: dict, msg: Message):
+    def _data_archiver_message_handler(self, body, msg: Message):
         ingest_cli = Ingest()
+        sub_uuid = None
         try:
+            if isinstance(body, str):
+                body = json.loads(body)
+
             req = DataArchiverRequest.from_dict(body)
-            self.logger.info(f'Received data archiving request for submission uuid {req.sub_uuid}')
+            sub_uuid = req.sub_uuid
+            self.logger.info(f'Received data archiving request for submission uuid {sub_uuid}')
 
             result = Archiver(ingest_cli, AwsS3()).start(req)            
-            self.logger.info(f'Archived data for submission uuid {req.sub_uuid}')
-            
+            self.logger.info(f'Archived data for submission uuid {sub_uuid}')
+
+        except (ValueError, TypeError) as e:
+            error_msg = f'Invalid data archiving request {body}: {str(e)}'
+            self.logger.debug(error_msg)
+            result = DataArchiverResult(sub_uuid, success=False, error=error_msg)
+
         except Exception as e:
             error_msg = f'Data archiving request {body} failed: {str(e)}'
-            self.logger.info(error_msg)
-            result = DataArchiverResult(req.sub_uuid, success=False, error=error_msg)
+            self.logger.debug(error_msg)
+            result = DataArchiverResult(sub_uuid, success=False, error=error_msg)
 
         ingest_cli.patch_files(result.files)
 
