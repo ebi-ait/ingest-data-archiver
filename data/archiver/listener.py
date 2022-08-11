@@ -42,7 +42,7 @@ class _Listener(ConsumerProducerMixin):
             if isinstance(body, str):
                 body = json.loads(body)
 
-            req = DataArchiverRequest.from_dict(body)
+            req = DataArchiverRequest(**body)
             sub_uuid = req.sub_uuid
             self.logger.info(f'Received data archiving request for submission uuid {sub_uuid}')
 

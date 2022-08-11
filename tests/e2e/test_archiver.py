@@ -58,7 +58,8 @@ class TestArchiver(unittest.TestCase):
             mock_ingest.get_sequence_files.return_value = [{"uuid": self.file_uuid, "file_name": self.file_name, "cloud_url": f's3://{self.s3_file}'}]
 
             self.logger.info(f'Starting data archiver ')
-            req = DataArchiverRequest.from_dict({"sub_uuid": f"{self.sub_uuid}", "files": [ f"{self.file_uuid}" ]}) 
+            request = {"sub_uuid": f"{self.sub_uuid}", "files": [ f"{self.file_uuid}" ]}
+            req = DataArchiverRequest(**request)
             archiver = Archiver(mock_ingest, AwsS3())
             archiver.start(req)
             archiver.close()
