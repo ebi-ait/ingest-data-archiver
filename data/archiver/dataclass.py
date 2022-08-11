@@ -4,7 +4,7 @@ import json
 import datetime
 
 
-class DataArchiverRequestParseExpection(Exception):
+class DataArchiverRequestParseException(Exception):
     pass
 
 @dataclass
@@ -20,7 +20,7 @@ class DataArchiverRequest:
                                      data["files"] if "files" in data else [],
                                      data["stream"] if "stream" in data else True)
         except (KeyError, TypeError) as e:
-            raise DataArchiverRequestParseExpection(e)
+            raise DataArchiverRequestParseException(e)
 
 
 @dataclass
