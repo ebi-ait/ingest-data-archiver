@@ -1,16 +1,17 @@
-import json
 from dataclasses import dataclass, field
-from typing import List, Dict
+from typing import List
 
 
 class DataArchiverRequestParseException(Exception):
     pass
+
 
 @dataclass
 class DataArchiverRequest:
     sub_uuid: str
     files: List[str] = field(default_factory=list)
     stream: bool = field(default=True)
+
 
 @dataclass
 class FileResult:
@@ -34,7 +35,8 @@ class FileResult:
 
     @classmethod
     def not_found_error(cls, uuid):
-        return cls(uuid, file_name='', cloud_url='', success=False, error="File not found in Ingest.")
+        return cls(uuid, file_name='', cloud_url='', success=False,
+                   error="File not found in Ingest.")
 
 
 @dataclass
@@ -52,7 +54,6 @@ class DataArchiverResult:
                 not_success += 1
         if not_success > 0:
             self.error = f"{not_success} file(s) failed to archived."
-        
 
 
 @dataclass
