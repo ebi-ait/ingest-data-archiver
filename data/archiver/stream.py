@@ -12,7 +12,7 @@ from multiprocessing.pool import ThreadPool
 
 from data.archiver.aws_s3_client import S3Url
 from data.archiver.config import AWS_ACCESS_KEY, AWS_SECRET_KEY, ENA_FTP_HOST, ENA_WEBIN_USER, ENA_WEBIN_PWD
-from data.archiver.dataclass import DataArchiverRequest
+from data.archiver.dataclass import DataArchiverResult, FileResult
 from data.archiver.ftp_uploader import FtpUploader
 
 
@@ -126,13 +126,18 @@ class S3FTPStreamer:
     def is_compressed(self, s3url):
         return s3url.endswith('.gz') and self.s3.read_block(s3url, 0, 2) == b'\x1f\x8b'
 
-    def start(self, res: DataArchiverRequest):
+    def start(self, res: DataArchiverResult):
         total_size = 0
+        environments = []
         for file in res.files:
             if not file.success:
                 continue
 
             if self.s3.exists(file.cloud_url):
+                environment = S3Url(file.cloud_url).bucket.split('-')[-1]
+                if environment not in environments:
+                    environments.append(environment)
+
                 size = self.s3.size(file.cloud_url)
                 total_size += size
                 file.size = size
@@ -146,19 +151,25 @@ class S3FTPStreamer:
         if total_files != num_files:
             self.logger.info(f'{total_files - num_files} files not found.')
 
+        # Create each environment directory once for all files
+        # rather than have all files try to create it
+        with S3FTPStreamer.new_ftpcli() as ftp:
+            for environment in environments:
+                FtpUploader.mk_dir(ftp, environment)
+
         pbar = tqdm(total=total_size, unit='B', unit_scale=True, desc=f'{num_files} files', mininterval=2)
         pool = ThreadPool() # cpu_count() DEFAULT_THREAD_COUNT=25
-        def cp(file):
+        def cp(file_to_copy: FileResult):
 
-            if not file.success:
+            if not file_to_copy.success:
                 return
 
             try:
-                self.s3_ftp_stream(file, pbar.update) 
+                self.s3_ftp_stream(file_to_copy, pbar.update)
             except Exception as ex:
-                file.error = str(ex)
-                file.success = False
-                pass
+                logging.error(f'Failed to copy file via stream: {file_to_copy} error: {ex}')
+                file_to_copy.error = str(ex)
+                file_to_copy.success = False
 
         self.logger.info('Streaming...')
 
