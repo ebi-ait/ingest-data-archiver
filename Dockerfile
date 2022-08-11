@@ -1,4 +1,4 @@
-FROM quay.io/ebi-ait/ingest-base-images:python_3.7-slim
+FROM quay.io/ebi-ait/ingest-base-images:python_3.7.13-slim
 LABEL maintainer="hca-ingest-dev@ebi.ac.uk"
 
 RUN apt-get update 
