@@ -16,8 +16,10 @@ if not INGEST_API.endswith("/"):
     INGEST_API += '/'
 
 # messaging
-RABBIT_HOST = os.environ.get('RABBIT_HOST')
-RABBIT_PORT = os.environ.get('RABBIT_PORT')
+RABBIT_HOST = os.getenv('RABBIT_HOST')
+RABBIT_PORT = os.getenv('RABBIT_PORT')
+
+SINGLE_THREADED = os.getenv('SINGLE_THREADED')
 
 EXCHANGE = 'ingest.data.archiver.exchange'
 EXCHANGE_TYPE = 'topic'

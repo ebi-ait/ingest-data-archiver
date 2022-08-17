@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 from data.archiver.aws_s3_client import S3Url
 from data.archiver.config import AWS_ACCESS_KEY, AWS_SECRET_KEY, ENA_FTP_HOST, ENA_WEBIN_USER, \
-    ENA_WEBIN_PWD
+    ENA_WEBIN_PWD, SINGLE_THREADED
 from data.archiver.dataclass import DataArchiverResult, FileResult
 from data.archiver.ftp_uploader import FtpUploader
 
@@ -163,8 +163,14 @@ class S3FTPStreamer:
                 for uuid in uuids.keys():
                     FtpUploader.mk_dir(ftp, uuid)
 
-        pbar = tqdm(total=total_size, unit='B', unit_scale=True, desc=f'{num_files} files',
-                    mininterval=2)
+        if SINGLE_THREADED:
+            self.single_threaded_copy(res.files, num_files, total_size)
+        else:
+            self.multi_threaded_copy(res.files, num_files, total_size)
+
+    def multi_threaded_copy(self, files, num_files, total_size):
+        self.logger.info('Streaming Multi Threaded...')
+        pbar = self.get_progressbar(num_files, total_size)
         pool = ThreadPool()  # cpu_count() DEFAULT_THREAD_COUNT=25
 
         def cp(file_to_copy: FileResult):
@@ -177,12 +183,36 @@ class S3FTPStreamer:
                 file_to_copy.error = str(ex)
                 file_to_copy.success = False
 
-        self.logger.info('Streaming...')
-
-        pool.map_async(cp, res.files)
+        pool.map_async(cp, files)
         pool.close()
         pool.join()
         pbar.close()
 
+    def single_threaded_copy(self, files, num_files, total_size):
+        self.logger.info('Streaming Single Threaded...')
+        with self.get_progressbar(num_files, total_size) as progress_bar:
+            for file in files:
+                self.copy_file(file, progress_bar)
+
+    def copy_file(self, file: FileResult, progress_bar: tqdm):
+        if not file.success:
+            return
+        try:
+            self.s3_ftp_stream(file, progress_bar.update)
+        except Exception as ex:
+            logging.error(f'Failed to copy file via stream: {file} error: {ex}')
+            file.error = str(ex)
+            file.success = False
+
+    @staticmethod
+    def get_progressbar(num_files, total_size):
+        return tqdm(
+            total=total_size,
+            unit='B',
+            unit_scale=True,
+            desc=f'{num_files} files',
+            mininterval=2
+        )
+
     def close(self):
-        pass
+        s3fs.S3FileSystem.close_session(None, self.s3)
