@@ -133,15 +133,15 @@ class S3FTPStreamer:
 
     def start(self, res: DataArchiverResult):
         total_size = 0
-        environments = []
+        prefix_paths = {}
         for file in res.files:
             if not file.success:
                 continue
 
             if self.s3.exists(file.cloud_url):
-                environment = S3Url(file.cloud_url).bucket.split('-')[-1]
-                if environment not in environments:
-                    environments.append(environment)
+                url = S3Url(file.cloud_url)
+                environment = url.bucket.split('-')[-1]
+                prefix_paths.setdefault(environment, {})[url.uuid] = f'{environment}/{url.uuid}'
 
                 size = self.s3.size(file.cloud_url)
                 total_size += size
@@ -155,11 +155,13 @@ class S3FTPStreamer:
         if total_files != num_files:
             self.logger.info(f'{total_files - num_files} files not found.')
 
-        # Create each environment directory once for all files
+        # Create each environment/uuid directory once for all files
         # rather than have all files try to create it
-        with S3FTPStreamer.new_ftpcli() as ftp:
-            for environment in environments:
-                FtpUploader.mk_dir(ftp, environment)
+        for environment, uuids in prefix_paths.items():
+            with S3FTPStreamer.new_ftpcli() as ftp:
+                FtpUploader.chdir(ftp, environment)
+                for uuid in uuids.keys():
+                    FtpUploader.mk_dir(ftp, uuid)
 
         pbar = tqdm(total=total_size, unit='B', unit_scale=True, desc=f'{num_files} files',
                     mininterval=2)
