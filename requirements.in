@@ -1,0 +1,5 @@
+requests
+kombu
+boto3==1.21.21
+tqdm
+s3fs

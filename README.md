@@ -82,9 +82,33 @@ E.g. 2
    ]
 }
 ```
+## Development
+### Requirements
+
+Requirements for this project are listed in 2 files: `requirements.txt` and `dev-requirements.txt`.
+The `dev-requirements.txt` file contains dependencies specific for development
+
+The requirement files (`requirements.txt`, `dev-requirements.txt`) are generated using `pip-compile` from [pip-tools](https://github.com/jazzband/pip-tools) 
+```
+pip-compile requirements.in --output-file=- > requirements.txt
+pip-compile dev-requirements.in --output-file=- > dev-requirements.txt
+```
+The direct dependencies are listed in `requirements.in`, `dev-requirements.in` input files.
+
+### Install dependencies
+
+* by using `pip-sync` from `pip-tools`
+```
+pip-sync requirements.txt dev-requirements.txt
+```
+* or by just using `pip install` 
+```
+    pip install -r requirements.txt
+    pip install -r dev-requirements.txt
+```
 
 
-## Test
+### Test
 ```
 python -m unittest tests.e2e.test_archiver
 ```

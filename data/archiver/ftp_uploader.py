@@ -42,9 +42,13 @@ class FtpUploader:
 
     @staticmethod
     def chdir(ftp, dir): 
+        FtpUploader.mk_dir(ftp, dir)
+        ftp.cwd(dir)
+
+    @staticmethod
+    def mk_dir(ftp, dir):
         if not FtpUploader.dir_exists(ftp, dir):
             ftp.mkd(dir)
-        ftp.cwd(dir)
 
     @staticmethod
     def dir_exists(ftp, dir):
